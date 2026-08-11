@@ -1,0 +1,486 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+generator dbml {
+  provider = "prisma-dbml-generator"
+  output   = "../dbml"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 Int          @id @default(autoincrement())
+  username           String?      @unique @db.VarChar(100)
+  password           String       @db.VarChar(255)
+  role               Role         @default(MAHASISWA)
+  isActive           Boolean      @default(true)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  dosen              Dosen?
+  krsApproved        KRS[]        @relation("ApprovedBy")
+  mahasiswa          Mahasiswa?
+  nilaiInputted      Nilai[]      @relation("InputBy")
+  paketKRSCreated    PaketKRS[]   @relation("CreatedBy")
+  pembayaranVerified Pembayaran[] @relation("VerifiedPayment")
+
+  @@map("users")
+}
+
+model ProgramStudi {
+  id        Int         @id @default(autoincrement())
+  kode      String      @unique @db.VarChar(20)
+  nama      String      @db.VarChar(200)
+  jenjang   String      @default("S1") @db.VarChar(10)
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  dosen     Dosen[]
+  mahasiswa Mahasiswa[]
+  paketKRS  PaketKRS[]
+
+  @@map("program_studi")
+}
+
+model Mahasiswa {
+  id                 Int              @id @default(autoincrement())
+  userId             Int              @unique
+  nim                String           @unique @db.VarChar(20)
+  namaLengkap        String           @db.VarChar(200)
+  tempatTanggalLahir String?          @db.VarChar(200)
+  jenisKelamin       JenisKelamin?
+  alamat             String?          @db.Text
+  prodiId            Int
+  angkatan           Int
+  status             StatusMahasiswa  @default(AKTIF)
+  dosenWaliId        Int?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  khs                KHS[]
+  krs                KRS[]
+  dosenWali          Dosen?           @relation("DosenWali", fields: [dosenWaliId], references: [id])
+  prodi              ProgramStudi     @relation(fields: [prodiId], references: [id])
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nilai              Nilai[]
+  pembayaran         Pembayaran[]
+  presensi           PresensiDetail[]
+
+  @@index([nim])
+  @@index([prodiId])
+  @@index([angkatan])
+  @@index([dosenWaliId])
+  @@map("mahasiswa")
+}
+
+model Dosen {
+  id                 Int               @id @default(autoincrement())
+  userId             Int               @unique
+  nidn               String            @unique @db.VarChar(20)
+  nuptk              String            @unique @db.VarChar(20)
+  namaLengkap        String            @db.VarChar(200)
+  prodiId            Int?
+  tempatLahir        String?           @db.VarChar(100)
+  tanggalLahir       DateTime?
+  posisi             String            @db.VarChar(100)
+  jafung             String            @db.VarChar(100)
+  alumni             String            @db.VarChar(200)
+  lamaMengajar       String            @db.VarChar(50)
+  status             StatusDosen       @default(AKTIF)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  prodi              ProgramStudi?     @relation(fields: [prodiId], references: [id])
+  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kelasMataKuliah    KelasMataKuliah[]
+  kelasMKFiles       KelasMKFile[]
+  mahasiswaBimbingan Mahasiswa[]       @relation("DosenWali")
+
+  @@index([nidn])
+  @@index([prodiId])
+  @@map("dosen")
+}
+
+model MataKuliah {
+  id              Int               @id @default(autoincrement())
+  kodeMK          String            @unique @db.VarChar(20)
+  namaMK          String            @db.VarChar(200)
+  sks             Int
+  semesterIdeal   Int
+  isLintasProdi   Boolean           @default(false)
+  deskripsi       String?           @db.Text
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  kelasMataKuliah KelasMataKuliah[]
+
+  @@index([kodeMK])
+  @@index([semesterIdeal])
+  @@map("mata_kuliah")
+}
+
+model Ruangan {
+  id              Int               @id @default(autoincrement())
+  nama            String            @unique @db.VarChar(100)
+  kapasitas       Int?              @default(30)
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  kelasMataKuliah KelasMataKuliah[]
+
+  @@map("ruangan")
+}
+
+model Semester {
+  id                         Int               @id @default(autoincrement())
+  tahunAkademik              String            @db.VarChar(20)
+  periode                    PeriodeSemester
+  tanggalMulai               DateTime
+  tanggalSelesai             DateTime
+  periodeKRSMulai            DateTime
+  periodeKRSSelesai          DateTime
+  periodePerbaikanKRSMulai   DateTime
+  periodePerbaikanKRSSelesai DateTime
+  isActive                   Boolean           @default(false)
+  createdAt                  DateTime          @default(now())
+  updatedAt                  DateTime          @updatedAt
+  kelasMataKuliah            KelasMataKuliah[]
+  khs                        KHS[]
+  krs                        KRS[]
+  nilai                      Nilai[]
+  paketKRS                   PaketKRS[]
+  pembayaranKRS              Pembayaran[]
+
+  @@unique([tahunAkademik, periode])
+  @@index([isActive])
+  @@map("semester")
+}
+
+model KelasMataKuliah {
+  id             Int              @id @default(autoincrement())
+  mkId           Int
+  semesterId     Int
+  dosenId        Int
+  hari           String           @db.VarChar(20)
+  jamMulai       String           @db.VarChar(10)
+  jamSelesai     String           @db.VarChar(10)
+  ruanganId      Int
+  kuotaMax       Int              @default(30)
+  keterangan     String?          @db.Text
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  dosen          Dosen            @relation(fields: [dosenId], references: [id])
+  mataKuliah     MataKuliah       @relation(fields: [mkId], references: [id], onDelete: Cascade)
+  ruangan        Ruangan          @relation(fields: [ruanganId], references: [id])
+  semester       Semester         @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  kelasMKFiles   KelasMKFile[]
+  krsDetail      KRSDetail[]
+  nilai          Nilai[]
+  paketKRSDetail PaketKRSDetail[]
+  presensi       Presensi[]
+
+  @@index([semesterId])
+  @@index([dosenId])
+  @@index([hari, jamMulai])
+  @@index([mkId], map: "kelas_mata_kuliah_mkId_fkey")
+  @@index([ruanganId], map: "kelas_mata_kuliah_ruanganId_fkey")
+  @@map("kelas_mata_kuliah")
+}
+
+model PaketKRS {
+  id            Int              @id @default(autoincrement())
+  namaPaket     String           @db.VarChar(200)
+  angkatan      Int
+  prodiId       Int
+  semesterPaket Int
+  semesterId    Int
+  totalSKS      Int              @default(0)
+  createdById   Int
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  krs           KRS[]
+  createdBy     User             @relation("CreatedBy", fields: [createdById], references: [id])
+  prodi         ProgramStudi     @relation(fields: [prodiId], references: [id])
+  semester      Semester         @relation(fields: [semesterId], references: [id])
+  detail        PaketKRSDetail[]
+
+  @@index([angkatan, prodiId, semesterPaket])
+  @@index([createdById], map: "paket_krs_createdById_fkey")
+  @@index([prodiId], map: "paket_krs_prodiId_fkey")
+  @@index([semesterId], map: "paket_krs_semesterId_fkey")
+  @@map("paket_krs")
+}
+
+model PaketKRSDetail {
+  id         Int             @id @default(autoincrement())
+  paketKRSId Int
+  kelasMKId  Int
+  createdAt  DateTime        @default(now())
+  kelasMK    KelasMataKuliah @relation(fields: [kelasMKId], references: [id], onDelete: Cascade)
+  paketKRS   PaketKRS        @relation(fields: [paketKRSId], references: [id], onDelete: Cascade)
+
+  @@unique([paketKRSId, kelasMKId])
+  @@index([kelasMKId], map: "paket_krs_detail_kelasMKId_fkey")
+  @@map("paket_krs_detail")
+}
+
+model KRS {
+  id              Int         @id @default(autoincrement())
+  mahasiswaId     Int
+  semesterId      Int
+  paketKRSId      Int?
+  status          StatusKRS   @default(DRAFT)
+  totalSKS        Int         @default(0)
+  isModified      Boolean     @default(false)
+  catatanAdmin    String?     @db.Text
+  tanggalSubmit   DateTime?
+  tanggalApproval DateTime?
+  approvedById    Int?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  approvedBy      User?       @relation("ApprovedBy", fields: [approvedById], references: [id])
+  mahasiswa       Mahasiswa   @relation(fields: [mahasiswaId], references: [id], onDelete: Cascade)
+  paketKRS        PaketKRS?   @relation(fields: [paketKRSId], references: [id])
+  semester        Semester    @relation(fields: [semesterId], references: [id])
+  detail          KRSDetail[]
+
+  @@unique([mahasiswaId, semesterId])
+  @@index([status])
+  @@index([semesterId])
+  @@index([approvedById], map: "krs_approvedById_fkey")
+  @@index([paketKRSId], map: "krs_paketKRSId_fkey")
+  @@map("krs")
+}
+
+model KRSDetail {
+  id        Int             @id @default(autoincrement())
+  krsId     Int
+  kelasMKId Int
+  createdAt DateTime        @default(now())
+  kelasMK   KelasMataKuliah @relation(fields: [kelasMKId], references: [id], onDelete: Cascade)
+  krs       KRS             @relation(fields: [krsId], references: [id], onDelete: Cascade)
+
+  @@unique([krsId, kelasMKId])
+  @@index([kelasMKId], map: "krs_detail_kelasMKId_fkey")
+  @@map("krs_detail")
+}
+
+model Nilai {
+  id           Int             @id @default(autoincrement())
+  mahasiswaId  Int
+  kelasMKId    Int
+  semesterId   Int
+  nilaiAngka   Decimal?        @db.Decimal(5, 2)
+  nilaiHuruf   NilaiHuruf?
+  bobot        Decimal?        @db.Decimal(3, 2)
+  isFinalized  Boolean         @default(false)
+  inputById    Int
+  tanggalInput DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  inputBy      User            @relation("InputBy", fields: [inputById], references: [id])
+  kelasMK      KelasMataKuliah @relation(fields: [kelasMKId], references: [id], onDelete: Cascade)
+  mahasiswa    Mahasiswa       @relation(fields: [mahasiswaId], references: [id], onDelete: Cascade)
+  semester     Semester        @relation(fields: [semesterId], references: [id])
+
+  @@unique([mahasiswaId, kelasMKId, semesterId])
+  @@index([semesterId])
+  @@index([kelasMKId])
+  @@index([inputById], map: "nilai_inputById_fkey")
+  @@map("nilai")
+}
+
+model KHS {
+  id                Int       @id @default(autoincrement())
+  mahasiswaId       Int
+  semesterId        Int
+  ips               Decimal   @db.Decimal(4, 2)
+  ipk               Decimal   @db.Decimal(4, 2)
+  totalSKSSemester  Int
+  totalSKSKumulatif Int
+  tanggalGenerate   DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  mahasiswa         Mahasiswa @relation(fields: [mahasiswaId], references: [id], onDelete: Cascade)
+  semester          Semester  @relation(fields: [semesterId], references: [id])
+
+  @@unique([mahasiswaId, semesterId])
+  @@index([semesterId])
+  @@map("khs")
+}
+
+model Pembayaran {
+  id              Int              @id @default(autoincrement())
+  mahasiswaId     Int
+  semesterId      Int?
+  jenisPembayaran JenisPembayaran  @default(KRS)
+  nominal         Int
+  buktiUrl        String           @db.VarChar(500)
+  status          StatusPembayaran @default(PENDING)
+  catatan         String?          @db.Text
+  bulanPembayaran DateTime?
+  uploadedAt      DateTime         @default(now())
+  verifiedAt      DateTime?
+  verifiedById    Int?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  mahasiswa       Mahasiswa        @relation(fields: [mahasiswaId], references: [id], onDelete: Cascade)
+  semester        Semester?        @relation(fields: [semesterId], references: [id])
+  verifiedBy      User?            @relation("VerifiedPayment", fields: [verifiedById], references: [id])
+
+  @@index([mahasiswaId])
+  @@index([semesterId])
+  @@index([status])
+  @@index([jenisPembayaran])
+  @@index([verifiedById], map: "pembayaran_verifiedById_fkey")
+  @@map("pembayaran")
+}
+
+model Presensi {
+  id        Int              @id @default(autoincrement())
+  kelasMKId Int
+  tanggal   DateTime         @default(now())
+  pertemuan Int
+  materi    String?          @db.VarChar(500)
+  catatan   String?          @db.Text
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  kelasMK   KelasMataKuliah  @relation(fields: [kelasMKId], references: [id], onDelete: Cascade)
+  detail    PresensiDetail[]
+
+  @@unique([kelasMKId, pertemuan])
+  @@index([kelasMKId])
+  @@index([tanggal])
+  @@map("presensi")
+}
+
+model PresensiDetail {
+  id          Int            @id @default(autoincrement())
+  presensiId  Int
+  mahasiswaId Int
+  status      StatusPresensi @default(ALPHA)
+  keterangan  String?        @db.VarChar(500)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  mahasiswa   Mahasiswa      @relation(fields: [mahasiswaId], references: [id], onDelete: Cascade)
+  presensi    Presensi       @relation(fields: [presensiId], references: [id], onDelete: Cascade)
+
+  @@unique([presensiId, mahasiswaId])
+  @@index([mahasiswaId])
+  @@map("presensi_detail")
+}
+
+model KelasMKFile {
+  id           Int             @id @default(autoincrement())
+  kelasMKId    Int
+  tipeFile     TipeFileKelas
+  namaFile     String          @db.VarChar(255)
+  fileUrl      String          @db.VarChar(500)
+  mingguKe     Int?
+  keterangan   String?         @db.Text
+  uploadedById Int
+  uploadedAt   DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  kelasMK      KelasMataKuliah @relation(fields: [kelasMKId], references: [id], onDelete: Cascade)
+  uploadedBy   Dosen           @relation(fields: [uploadedById], references: [id])
+
+  @@index([kelasMKId])
+  @@index([tipeFile])
+  @@index([uploadedById], map: "kelas_mk_file_uploadedById_fkey")
+  @@map("kelas_mk_file")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  action    String   @db.VarChar(100)
+  tableName String   @db.VarChar(100)
+  recordId  Int?
+  oldData   Json?
+  newData   Json?
+  ipAddress String?  @db.VarChar(50)
+  userAgent String?  @db.VarChar(500)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([tableName, recordId])
+  @@index([createdAt])
+  @@map("audit_log")
+}
+
+enum Role {
+  ADMIN
+  DOSEN
+  MAHASISWA
+  KEUANGAN
+}
+
+enum JenisKelamin {
+  L
+  P
+}
+
+enum StatusMahasiswa {
+  AKTIF
+  CUTI
+  NON_AKTIF
+  LULUS
+  DO
+}
+
+enum StatusDosen {
+  AKTIF
+  NON_AKTIF
+}
+
+enum PeriodeSemester {
+  GANJIL
+  GENAP
+}
+
+enum StatusKRS {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum NilaiHuruf {
+  A
+  AB
+  B
+  BC
+  C
+  CD
+  D
+  DE
+  E
+}
+
+enum StatusPembayaran {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum StatusPresensi {
+  HADIR
+  TIDAK_HADIR
+  IZIN
+  SAKIT
+  ALPHA
+}
+
+enum JenisPembayaran {
+  KRS
+  TENGAH_SEMESTER
+  PPL
+  SKRIPSI
+  WISUDA
+  KOMITMEN_BULANAN
+}
+
+enum TipeFileKelas {
+  RPS
+  RPP
+  MATERI
+}

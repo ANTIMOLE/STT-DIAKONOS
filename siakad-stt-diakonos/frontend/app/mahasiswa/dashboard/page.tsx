@@ -1,0 +1,528 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+'use client';
+
+import { useState, useEffect, useMemo, useCallback } from 'react';
+
+import LoadingSpinner from '@/components/shared/LoadingSpinner';
+import ErrorState from '@/components/shared/ErrorState';
+import StatusBadge from '@/components/features/status/StatusBadge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { 
+  FileText, 
+  Award, 
+  Calendar, 
+  BookOpen, 
+  AlertCircle,
+  Clock,
+  CheckCircle 
+} from 'lucide-react';
+import { toast } from 'sonner';
+import Link from 'next/link';
+
+import { dashboardAPI } from '@/lib/api';
+import { MahasiswaDashboardStats } from '@/types/model';
+
+// ✅ Helper functions di luar component (tidak recreate setiap render)
+const toNumber = (value: any): number | null => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'object' && 'toNumber' in value) {
+    return value.toNumber();
+  }
+  const num = Number(value);
+  return isNaN(num) ? null : num;
+};
+
+const formatScore = (value: any): string => {
+  const num = toNumber(value);
+  return num !== null ? num.toFixed(2) : '-';
+};
+
+const getKRSStatusInfo = (status?: string) => {
+  switch (status) {
+    case 'DRAFT':
+      return {
+        label: 'KRS Belum Disubmit',
+        description: 'Lengkapi dan submit KRS Anda',
+        variant: 'warning' as const,
+      };
+    case 'SUBMITTED':
+      return {
+        label: 'Menunggu Approval',
+        description: 'KRS sedang ditinjau dosen wali',
+        variant: 'info' as const,
+      };
+    case 'APPROVED':
+      return {
+        label: 'KRS Disetujui',
+        description: 'KRS Anda sudah disetujui',
+        variant: 'success' as const,
+      };
+    case 'REJECTED':
+      return {
+        label: 'KRS Ditolak',
+        description: 'Revisi KRS Anda',
+        variant: 'error' as const,
+      };
+    default:
+      return {
+        label: 'Belum Ada KRS',
+        description: 'Buat KRS untuk semester ini',
+        variant: 'default' as const,
+      };
+  }
+};
+
+// Peta warna eksplisit untuk variant status KRS yang dinamis —
+// sengaja bukan template literal (`border-${variant}-200`) karena
+// Tailwind JIT butuh class lengkap yang bisa di-scan statis dari source code.
+type KRSVariant = 'warning' | 'info' | 'success' | 'error' | 'default';
+type KRSVariantStyle = {
+  borderL: string;
+  iconBg: string;
+  iconText: string;
+};
+
+const KRS_VARIANT_STYLES: Record<KRSVariant, KRSVariantStyle> = {
+  warning: {
+    borderL: 'border-l-amber-500',
+    iconBg: 'bg-amber-200',
+    iconText: 'text-amber-700',
+  },
+  info: {
+    borderL: 'border-l-blue-500',
+    iconBg: 'bg-blue-200',
+    iconText: 'text-blue-700',
+  },
+  success: {
+    borderL: 'border-l-emerald-500',
+    iconBg: 'bg-emerald-200',
+    iconText: 'text-emerald-700',
+  },
+  error: {
+    borderL: 'border-l-rose-500',
+    iconBg: 'bg-rose-200',
+    iconText: 'text-rose-700',
+  },
+  default: {
+    borderL: 'border-l-slate-400',
+    iconBg: 'bg-slate-200',
+    iconText: 'text-slate-700',
+  },
+};
+
+const DAYS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+
+export default function MahasiswaDashboardPage() {
+  // ============================================
+  // STATE MANAGEMENT
+  // ============================================
+  const [stats, setStats] = useState<MahasiswaDashboardStats | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [currentDay, setCurrentDay] = useState<string>('');
+
+  // ============================================
+  // FETCH DATA
+  // ============================================
+  useEffect(() => {
+    const today = new Date().getDay();
+    setCurrentDay(DAYS[today]);
+
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const response = await dashboardAPI.getMahasiswaStats();
+        
+        if (response.success && response.data) {
+          setStats(response.data);
+        } else {
+          throw new Error(response.message || 'Gagal memuat data dashboard');
+        }
+      } catch (err: any) {
+        console.error('Fetch dashboard error:', err);
+        setError(
+          err.response?.data?.message ||
+            err.message ||
+            'Terjadi kesalahan saat memuat data dashboard'
+        );
+        toast.error('Gagal memuat data dashboard');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // ============================================
+  // MEMOIZED COMPUTED VALUES
+  // ============================================
+  const krsInfo = useMemo(() => getKRSStatusInfo(stats?.krsStatus), [stats?.krsStatus]);
+
+  const krsStyle = useMemo(
+    () => KRS_VARIANT_STYLES[krsInfo.variant] || KRS_VARIANT_STYLES.default,
+    [krsInfo.variant]
+  );
+
+  const hasJadwalToday = useMemo(
+    () => stats?.jadwalHariIni && stats.jadwalHariIni.length > 0,
+    [stats?.jadwalHariIni]
+  );
+
+  const ipsNum = useMemo(() => toNumber(stats?.ips), [stats?.ips]);
+  const ipkNum = useMemo(() => toNumber(stats?.ipk), [stats?.ipk]);
+
+  const formattedIPS = useMemo(() => formatScore(stats?.ips), [stats?.ips]);
+  const formattedIPK = useMemo(() => formatScore(stats?.ipk), [stats?.ipk]);
+
+  const predikat = useMemo(() => {
+    if (ipkNum === null) return '-';
+    if (ipkNum >= 3.5) return 'Cum Laude';
+    if (ipkNum >= 3.0) return 'Memuaskan';
+    return 'Baik';
+  }, [ipkNum]);
+
+  const showAcademicProgress = useMemo(
+    () => ipkNum !== null || ipsNum !== null,
+    [ipkNum, ipsNum]
+  );
+
+  // ============================================
+  // MEMOIZED HANDLERS
+  // ============================================
+  const handleRetry = useCallback(() => {
+    window.location.reload();
+  }, []);
+
+  // ============================================
+  // LOADING STATE
+  // ============================================
+  if (isLoading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <LoadingSpinner size="lg" text="Memuat dashboard..." />
+      </div>
+    );
+  }
+
+  // ============================================
+  // ERROR STATE
+  // ============================================
+  if (error || !stats) {
+    return (
+      <ErrorState
+        title="Gagal Memuat Dashboard"
+        message={error || 'Data tidak tersedia'}
+        onRetry={handleRetry}
+      />
+    );
+  }
+
+  // ============================================
+  // RENDER
+  // ============================================
+  return (
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Selamat Datang, {stats.nama}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          {stats.nim} • {stats.prodi} • Angkatan {stats.angkatan}
+        </p>
+      </div>
+
+      {/* KRS Status Alert */}
+      {stats.krsStatus === 'DRAFT' && (
+        <Alert className="border-amber-200 bg-amber-50">
+          <AlertCircle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-900">
+            KRS Anda belum disubmit. Segera lengkapi dan submit KRS untuk semester ini.
+            <Link href="/mahasiswa/krs">
+              <Button variant="link" className="h-auto p-0 ml-1 text-amber-700 underline cursor-pointer
+                              transition-all duration-200
+                              active:scale-90">
+                Submit sekarang
+              </Button>
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {stats.krsStatus === 'REJECTED' && (
+        <Alert className="border-rose-200 bg-rose-50">
+          <AlertCircle className="h-4 w-4 text-rose-600" />
+          <AlertDescription className="text-rose-900">
+            KRS Anda ditolak. Silakan perbaiki dan submit ulang.
+            <Link href="/mahasiswa/krs">
+              <Button variant="link" className="h-auto p-0 ml-1 text-rose-700 underline cursor-pointer
+                              transition-all duration-200
+                              active:scale-90">
+                Lihat detail
+              </Button>
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Profile Card */}
+      <Card className="bg-linear-to-br from-primary/5 to-primary/10 border-primary/20">
+        <CardContent className="pt-6">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Dosen Wali</p>
+              <p className="font-medium">{stats.dosenWali || 'Belum ditentukan'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Total SKS Lulus</p>
+              <p className="font-medium">{stats.totalSKSLulus} SKS</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {/* Status KRS */}
+        <Card className={`border-l-4 ${krsStyle.borderL} bg-white`}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Status KRS</CardTitle>
+            <div className={`rounded-lg ${krsStyle.iconBg} p-2`}>
+              <FileText className={`h-4 w-4 ${krsStyle.iconText}`} />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <StatusBadge status={stats.krsStatus || 'DRAFT'} showIcon />
+            <p className="text-xs text-muted-foreground mt-2">
+              {krsInfo.description}
+            </p>
+          </CardContent>
+        </Card>
+
+        {/* Total SKS */}
+        <Card className="border-l-4 border-l-slate-400 bg-white">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total SKS</CardTitle>
+            <div className="rounded-lg bg-slate-200 p-2">
+              <BookOpen className="h-4 w-4 text-slate-700" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold tracking-tight">{stats.totalSKSLulus}</div>
+            <p className="text-xs text-muted-foreground mt-1">SKS yang telah lulus</p>
+          </CardContent>
+        </Card>
+
+        {/* IPS */}
+        <Card className="border-l-4 border-l-blue-500 bg-white">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-blue-900/70">IPS</CardTitle>
+            <div className="rounded-lg bg-blue-200 p-2">
+              <Award className="h-4 w-4 text-blue-700" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold tracking-tight text-blue-700">
+              {formattedIPS}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Indeks Prestasi Semester</p>
+          </CardContent>
+        </Card>
+
+        {/* IPK */}
+        <Card className="border-l-4 border-l-emerald-500 bg-white">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-emerald-900/70">IPK</CardTitle>
+            <div className="rounded-lg bg-emerald-200 p-2">
+              <Award className="h-4 w-4 text-emerald-700" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold tracking-tight text-emerald-700">
+              {formattedIPK}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Indeks Prestasi Kumulatif</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Jadwal Hari Ini */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              <CardTitle>Jadwal Hari Ini</CardTitle>
+            </div>
+            <Badge variant="outline">{currentDay}</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {hasJadwalToday ? (
+            <div className="space-y-3">
+              {stats.jadwalHariIni!.map((kelas) => (
+                <div
+                  key={kelas.id}
+                  className="flex items-center justify-between rounded-lg border p-4 hover:bg-accent/50 transition-colors"
+                >
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="rounded-lg bg-primary/10 p-2">
+                      <Clock className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900">
+                        {kelas.mataKuliah?.namaMK}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="text-xs">
+                          {kelas.jamMulai} - {kelas.jamSelesai}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">•</span>
+                        <span className="text-xs text-muted-foreground">
+                          {kelas.ruangan?.nama}
+                        </span>
+                      </div>
+                      {kelas.dosen && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {kelas.dosen.namaLengkap}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Calendar className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
+              <p className="text-sm text-muted-foreground">
+                Tidak ada jadwal kuliah hari ini
+              </p>
+              <Link href="/mahasiswa/jadwal">
+                <Button variant="link" className="mt-2 cursor-pointer
+                              transition-all duration-200
+                              active:scale-90">
+                  Lihat jadwal lengkap →
+                </Button>
+              </Link>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Quick Actions */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="hover:shadow-lg transition-shadow border-blue-200">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-600" />
+              Kartu Rencana Studi
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              {stats.krsStatus === 'APPROVED' 
+                ? 'Lihat detail KRS yang sudah disetujui'
+                : 'Buat atau edit KRS semester ini'}
+            </p>
+            <Link href="/mahasiswa/krs">
+              <Button className="w-full bg-blue-600 hover:bg-blue-700 cursor-pointer
+                              transition-all duration-200
+                              active:scale-90">
+                {stats.krsStatus === 'DRAFT' ? 'Buat KRS' : 'Lihat KRS'} →
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow border-green-200">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Award className="h-5 w-5 text-green-600" />
+              Kartu Hasil Studi
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Lihat nilai dan transkrip akademik
+            </p>
+            <Link href="/mahasiswa/khs">
+              <Button className="w-full bg-green-600 hover:bg-green-700 cursor-pointer
+                              transition-all duration-200
+                              active:scale-90">
+                Lihat KHS →
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-shadow border-purple-200">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-purple-600" />
+              Jadwal Kuliah
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Lihat jadwal kuliah mingguan lengkap
+            </p>
+            <Link href="/mahasiswa/jadwal">
+              <Button className="w-full bg-purple-600 hover:bg-purple-700 cursor-pointer
+                              transition-all duration-200
+                              active:scale-90">
+                Lihat Jadwal →
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Academic Progress */}
+      {showAcademicProgress && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              Progress Akademik
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="text-center p-4 rounded-lg bg-blue-50">
+                <p className="text-sm text-muted-foreground mb-1">SKS Lulus</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {stats.totalSKSLulus}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">SKS</p>
+              </div>
+              <div className="text-center p-4 rounded-lg bg-green-50">
+                <p className="text-sm text-muted-foreground mb-1">IPK</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {formattedIPK}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">Kumulatif</p>
+              </div>
+              <div className="text-center p-4 rounded-lg bg-purple-50">
+                <p className="text-sm text-muted-foreground mb-1">Predikat</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {predikat}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Berdasarkan IPK
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
