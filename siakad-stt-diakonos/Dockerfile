@@ -69,5 +69,6 @@ COPY --from=frontend-build /frontend/package.json ./frontend/package.json
 COPY --from=frontend-build /frontend/next.config.ts ./frontend/next.config.ts
 
 WORKDIR /app/backend
+RUN npm install typescript --no-save
 EXPOSE 5000
 CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
