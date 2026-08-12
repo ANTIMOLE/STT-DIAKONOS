@@ -1,0 +1,10 @@
+backend/node_modules
+backend/dist
+backend/uploads
+backend/.env
+backend/src/generated
+frontend/node_modules
+frontend/.next
+**/*.zip
+.env
+.git
