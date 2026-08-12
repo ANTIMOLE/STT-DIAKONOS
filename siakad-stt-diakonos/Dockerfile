@@ -29,7 +29,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 # devDependencies frontend (tailwind, eslint, typescript) aman dibuang —
 # gak ada satupun yang dipanggil lagi setelah build selesai
-RUN npm prune --omit=dev
+# RUN npm prune --omit=dev
 
 # ============================================
 # BUILD BACKEND
