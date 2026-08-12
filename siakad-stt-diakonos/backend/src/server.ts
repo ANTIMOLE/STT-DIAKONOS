@@ -93,6 +93,7 @@ const cspWithFrontend = {
     baseUri: ["'self'"],
     frameAncestors: allowedFrameAncestors,
     // ...(IS_PRODUCTION && { upgradeInsecureRequests: [] }),
+    upgradeInsecureRequests: null,
   },
 };
 
@@ -111,6 +112,7 @@ const cspApiOnly = {
     baseUri: ["'self'"],
     frameAncestors: allowedFrameAncestors,
     // ...(IS_PRODUCTION && { upgradeInsecureRequests: [] }),
+    upgradeInsecureRequests: null,
   },
 };
 
