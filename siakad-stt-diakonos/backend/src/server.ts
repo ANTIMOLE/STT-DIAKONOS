@@ -92,7 +92,7 @@ const cspWithFrontend = {
     formAction: ["'self'"],
     baseUri: ["'self'"],
     frameAncestors: allowedFrameAncestors,
-    ...(IS_PRODUCTION && { upgradeInsecureRequests: [] }),
+    // ...(IS_PRODUCTION && { upgradeInsecureRequests: [] }),
   },
 };
 
@@ -110,7 +110,7 @@ const cspApiOnly = {
     formAction: ["'self'"],
     baseUri: ["'self'"],
     frameAncestors: allowedFrameAncestors,
-    ...(IS_PRODUCTION && { upgradeInsecureRequests: [] }),
+    // ...(IS_PRODUCTION && { upgradeInsecureRequests: [] }),
   },
 };
 
