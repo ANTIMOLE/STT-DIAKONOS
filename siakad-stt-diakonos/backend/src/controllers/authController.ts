@@ -41,10 +41,21 @@ const verifyRecaptcha = async (token: string): Promise<boolean> => {
 // ============================================
 // COOKIE OPTIONS
 // ============================================
+// const getCookieOptions = () => ({
+//   httpOnly: true,
+//   secure: process.env.NODE_ENV === 'production',
+//   sameSite: (process.env.NODE_ENV === 'production' ? 'strict' : 'lax') as 'strict' | 'lax', 
+//   maxAge: 24 * 60 * 60 * 1000, 
+//   path: '/',
+//   ...(process.env.NODE_ENV === 'production' && {
+//     domain: process.env.COOKIE_DOMAIN || undefined,
+//   }),
+// });
+
 const getCookieOptions = () => ({
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: (process.env.NODE_ENV === 'production' ? 'strict' : 'lax') as 'strict' | 'lax', 
+  secure: false, // TODO: balikin ke `process.env.NODE_ENV === 'production'` begitu HTTPS beneran aktif
+  sameSite: 'lax' as 'strict' | 'lax',
   maxAge: 24 * 60 * 60 * 1000, 
   path: '/',
   ...(process.env.NODE_ENV === 'production' && {
@@ -509,10 +520,16 @@ export const changePassword = asyncHandler(
 // ============================================
 export const logout = asyncHandler(
   async (req: AuthRequest, res: Response) => {
+    // res.clearCookie('token', {
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === 'production',
+    //   sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+    //   path: '/',
+    // });
     res.clearCookie('token', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      secure: false,
+      sameSite: 'lax',
       path: '/',
     });
 
