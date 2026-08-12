@@ -22,7 +22,7 @@ import {
   PresensiStatsMahasiswa,
   PresensiStatsKelas,
 } from '@/types/model';
-
+import { startLoading, stopLoading } from './loadingStore';
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api"
 
 // ============================================
@@ -42,21 +42,41 @@ export const api = axios.create({
 // ============================================
 api.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
+        startLoading();
         return config;
     },
     (error : AxiosError) => {
+        stopLoading();
         return Promise.reject(error)    
     }
 );
+
+// api.interceptors.request.use(
+//     async (config: InternalAxiosRequestConfig) => {
+//         startLoading();
+
+//         await new Promise(resolve => setTimeout(resolve, 2000));
+
+//         return config;
+//     },
+//     (error: AxiosError) => {
+//         stopLoading();
+//         return Promise.reject(error);
+//     }
+// );
+
+//AKU CB PAKE DELAY INI TETEP GA MUNCUL ADA MASALAH BERARTI
 
 // ============================================
 // RESPONSE INTERCEPTOR
 // ============================================
 api.interceptors.response.use(
     (response) => {
+        stopLoading();
         return response.data;
     },
     (error : AxiosError) =>{
+        stopLoading();
         if (error.response){
             const status = error.response.status;
             
@@ -82,6 +102,8 @@ api.interceptors.response.use(
         return Promise.reject(error);
     }
 )
+
+
 
 // ============================================
 // AUTH API FUNCTIONS

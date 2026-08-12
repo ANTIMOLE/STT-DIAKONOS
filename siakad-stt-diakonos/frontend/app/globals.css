@@ -7,6 +7,7 @@
 /* TAILWIND V4 IMPORTS */
 /* ============================================ */
 @import "tailwindcss";
+@config "../tailwind.config.ts";
 
 /* ============================================ */
 /* CSS VARIABLES (shadcn/ui theme) */
@@ -382,4 +383,24 @@ textarea:disabled {
 /* ============================================ */
 ::placeholder {
   color: hsl(var(--muted-foreground));
+}
+
+
+/* ============================================ */
+/* GLOBAL LOADING BAR ANIMATION */
+/* ============================================ */
+@keyframes global-loading-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(150%);
+  }
+  100% {
+    transform: translateX(150%);
+  }
+}
+
+.animate-global-loading-bar {
+  animation: global-loading-bar 1.1s ease-in-out infinite;
 }
