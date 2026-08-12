@@ -39,6 +39,7 @@ WORKDIR /backend
 COPY backend/package.json backend/package-lock.json ./
 RUN npm ci
 COPY backend/ .
+ENV DATABASE_URL="mysql://user:pass@localhost:3306/placeholder"
 RUN npx prisma generate
 RUN npm run build
 # CATATAN: backend SENGAJA TIDAK di-prune (beda dari frontend).
