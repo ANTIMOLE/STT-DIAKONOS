@@ -18,7 +18,8 @@ export const getAll = asyncHandler(async (req: AuthRequest, res: Response) => {
     page = 1,
     limit = 10,
     search,
-    isActive = 'true',
+    // isActive = 'true',
+    isActive,
     sortBy = 'nama',
     sortOrder = 'asc',
   } = req.query;

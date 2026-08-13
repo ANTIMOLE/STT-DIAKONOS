@@ -181,8 +181,8 @@ export default function AdminDashboardPage() {
             {[
               { label: 'Approve KRS', href: '/admin/krs?status=pending', icon: FileText, count: stats?.krsPending },
               { label: 'Approve Pembayaran', href: '/admin/pembayaran?status=pending', icon: Wallet },
-              { label: 'Tambah Mahasiswa', href: '/admin/mahasiswa/new', icon: UserPlus },
-              { label: 'Tambah Dosen', href: '/admin/dosen/new', icon: GraduationCap },
+              { label: 'Tambah Mahasiswa', href: '/admin/mahasiswa/tambah', icon: UserPlus },
+              { label: 'Tambah Dosen', href: '/admin/dosen/tambah', icon: GraduationCap },
             ].map((action) => (
               <Link
                 key={action.label}
