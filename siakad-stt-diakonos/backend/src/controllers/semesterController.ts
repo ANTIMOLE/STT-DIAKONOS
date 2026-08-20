@@ -327,17 +327,17 @@ export const activate = asyncHandler(
     await prisma.$transaction(async (tx) => {
 
       const deactivateResult = await tx.$executeRaw`
-        UPDATE \`semester\` 
-        SET \`isActive\` = false, \`updatedAt\` = NOW() 
-        WHERE \`isActive\` = true
+        UPDATE "semester" 
+        SET "isActive" = false, "updatedAt" = NOW() 
+        WHERE "isActive" = true
       `;
       console.log('Deactivated all active semesters:', deactivateResult);
 
 
       const activateResult = await tx.$executeRaw`
-        UPDATE \`semester\` 
-        SET \`isActive\` = true, \`updatedAt\` = NOW() 
-        WHERE \`id\` = ${semesterId}
+        UPDATE "semester" 
+        SET "isActive" = true, "updatedAt" = NOW() 
+        WHERE "id" = ${semesterId}
       `;
       console.log('Activated target semester:', activateResult);
     });
